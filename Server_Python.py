@@ -1,6 +1,6 @@
 import socket
 import xml.etree.ElementTree as ET
-
+import numpy as np
 
 def get_user_input():
     
