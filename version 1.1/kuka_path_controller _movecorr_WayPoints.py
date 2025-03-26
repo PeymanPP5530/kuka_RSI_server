@@ -75,7 +75,7 @@ connected = False
 last_packet_time = 0
 packet_counter = 0
 current_step = 0
-last_movecorr_flag = 0
+last_movecorr_flag = '0'
 
 # Flag to control the program
 running = True
