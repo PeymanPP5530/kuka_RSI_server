@@ -80,7 +80,7 @@ last_movecorr_flag = 0
 # Flag to control the program
 running = True
 
-stop = 0
+stop_flag = 0
 
 # function to convert the angles from [-180,180] to [0 360]
 def convert_angle_to360(angle):
@@ -319,14 +319,14 @@ def create_response(ipoc, corrections):
         f'<Tech T21="1.09" T22="2.08" T23="3.07" T24="4.06" T25="5.05" T26="6.04" T27="7.03" T28="8.02" T29="9.01" T210="10.00" />'
         f'<RKorr X="{corrections["X"]:.4f}" Y="{corrections["Y"]:.4f}" Z="{corrections["Z"]:.4f}" '
         f'A="{corrections["A"]:.4f}" B="{corrections["B"]:.4f}" C="{corrections["C"]:.4f}" />'
-        f'<DiO>{stop}</DiO><IPOC>{ipoc}</IPOC></Sen>'
+        f'<DiO>{stop_flag}</DiO><IPOC>{ipoc}</IPOC></Sen>'
     )
     
     return response
 
 def user_input_thread():
     """Thread to handle user input for controlling the program."""
-    global running, target_positions, target_mode, current_positions, initial_corr_pos, stop
+    global running, target_positions, target_mode, current_positions, initial_corr_pos, stop_flag
     
     print("\nCommand Interface for RSI Path Controller")
     print("----------------------------------------")
@@ -371,8 +371,8 @@ def user_input_thread():
                 print(f"  {axis}: {value:.2f}")
                 
         elif cmd.lower() == "stop":
-            print("stop movecorr:")
-            stop = 1
+            print("stopping movecorr.")
+            stop_flag = 1
                 
         elif cmd.lower() == "target":
             print("Target positions:")
@@ -454,7 +454,7 @@ def user_input_thread():
 
 def communication_thread():
     """Thread to handle robot communication."""
-    global running, connected, packet_counter, last_packet_time, current_positions, current_step, stop, last_movecorr_flag
+    global running, connected, packet_counter, last_packet_time, current_positions, current_step, stop_flag, last_movecorr_flag
     
     HOST, PORT = "10.10.10.20", 59152
     
@@ -555,7 +555,8 @@ def communication_thread():
                 sock.sendto(response_xml.encode('utf-8'), addr)
                 
                 # reset the stop flag
-                stop = 0
+                if last_movecorr_flag == "0" and stop_flag == 1:
+                    stop_flag = 0
                 
                 # Log status periodically
                 if packet_counter % 100 == 0:
