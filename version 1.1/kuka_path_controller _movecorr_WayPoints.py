@@ -75,6 +75,7 @@ connected = False
 last_packet_time = 0
 packet_counter = 0
 current_step = 0
+last_movecorr_flag = 0
 
 # Flag to control the program
 running = True
@@ -332,10 +333,12 @@ def user_input_thread():
     print("Commands:")
     print("  target AXIS VALUE - Set single target position (e.g., target X 1500)")
     print("  (X,Y,Z,A,B,C) - Set all target positions at once (e.g., (1500,200,800,0,90,0))")
+    print("  correctio X 50 - Set the correction value for an axis directly")
     print("  reset - Reset all target positions to zero")
     print("  waypoint - Show current waypoint and correction")
     print("  current - Show current robot position")
     print("  target - Show target positions")
+    print("  correction - Show correction value")
     print("  status - Show connection status")
     print("  help - Show this help message")
     print("  exit - Exit the program")
@@ -352,10 +355,12 @@ def user_input_thread():
             print("Commands:")
             print("  target AXIS VALUE - Set single target position (e.g., target X 1500)")
             print("  (X,Y,Z,A,B,C) - Set all target positions at once (e.g., (1500,200,800,0,90,0))")
+            print("  correctio X 50 - Set the correction value for an axis directly")
             print("  reset - Reset all target positions to zero")
             print("  waypoint - Show current waypoint and correction")
             print("  current - Show current robot position")
             print("  target - Show target positions")
+            print("  correction - Show correction value")
             print("  status - Show connection status")
             print("  help - Show this help message")
             print("  exit - Exit the program")
@@ -422,7 +427,8 @@ def user_input_thread():
                     print("Error: Format must include exactly 6 values for X,Y,Z,A,B,C")
             except ValueError:
                 print("Error: Invalid format. Use (X,Y,Z,A,B,C) with numeric values")
-                
+        
+        # Parse format like (correction X 50)        
         elif cmd.lower().startswith("correction"):
             parts = cmd.split()
             if len(parts) == 3 and parts[1].upper() in target_positions:
@@ -448,7 +454,7 @@ def user_input_thread():
 
 def communication_thread():
     """Thread to handle robot communication."""
-    global running, connected, packet_counter, last_packet_time, current_positions, current_step, stop
+    global running, connected, packet_counter, last_packet_time, current_positions, current_step, stop, last_movecorr_flag
     
     HOST, PORT = "10.10.10.20", 59152
     
@@ -517,6 +523,19 @@ def communication_thread():
                                 if corr_str:
                                     print(f"Waypoint {current_step} correction: {corr_str}")
                                     logging.info(f"Waypoint {current_step} correction: {corr_str}")
+                                    
+                    # Extract movecorr flag
+                    movecorr_flag_elem = root.find(".//Movecorr_flag")
+                    if movecorr_flag_elem is not None:
+                        new_movecorr_flag = movecorr_flag_elem.text
+                        if new_movecorr_flag == "1" and new_movecorr_flag != last_movecorr_flag:
+                            last_movecorr_flag = new_movecorr_flag
+                            print("MOVECORR is activated")
+                            logging.info("MOVECORR is activated")
+                        elif new_movecorr_flag == "0" and new_movecorr_flag != last_movecorr_flag:
+                            last_movecorr_flag = new_movecorr_flag
+                            print("MOVECORR is stoped")
+                            logging.info("MOVECORR is stoped")
                     
                 except ET.ParseError as e:
                     print(f"Error parsing XML: {e}")
