@@ -1,0 +1,189 @@
+&ACCESS RVP
+&REL 17
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM DISKPATH = KRC:\R1
+DEF RSI_PathControl_1()
+   ;FOLD INI;%{PE}
+      ;FOLD BASISTECH INI
+         GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+         INTERRUPT ON 3 
+         BAS (#INITMOV,0 )
+      ;ENDFOLD (BASISTECH INI)
+      ;FOLD USER INI
+         ;Make your modifications here
+      ;ENDFOLD (USER INI)
+   ;ENDFOLD (INI)
+   
+   ; Declaration of KRL variables
+   ;DECL INT ret        ; Return value for RSI commands
+   ;DECL INT container  ; Container ID
+   ;DECL INT step       ; Current waypoint step
+   ;DECL INT movecorr_flag
+   ; Move to home position
+   
+   PTP {A1 0, A2 -90, A3 90, A4 0, A5 0, A6 0}
+   
+   ; Create RSI Context
+   ret = RSI_CREATE("PathControl", container)
+   IF (ret <> RSIOK) THEN
+      HALT
+   ENDIF
+   
+   ; Start RSI execution in RELATIVE mode for smaller corrections
+   ret = RSI_ON(#RELATIVE, , ,#BASE)
+   
+   IF (ret <> RSIOK) THEN
+      HALT
+   ENDIF
+   
+   LOOP
+      
+      IF  ( $ANOUT[1]==1 ) THEN
+         
+         step=1
+         ret=RSI_SETPUBLICPAR(container,"step","Value", step)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         PTP {A1 30, A2 -90, A3 90, A4 0, A5 90, A6 0}
+         
+         ;ENDFOLD
+         step=2
+         ret=RSI_SETPUBLICPAR(container,"step","Value", step)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         ;FOLD PTP P3 CONT Vel=100 % PDAT1 Tool[1] Base[0] ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P3; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+            ;ENDFOLD
+            
+            $BWDSTART = FALSE
+            PDAT_ACT = PPDAT1
+            FDAT_ACT = FP3
+            BAS(#PTP_PARAMS, 100.0)
+            SET_CD_PARAMS (0)
+            PTP XP3 C_Dis
+            
+         ;ENDFOLD
+         step=3
+         ret=RSI_SETPUBLICPAR(container,"step","Value", step)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         
+         ;FOLD LIN P2 CONT Vel=2 m/s CPDAT1 Tool[1] Base[0] ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=True; Kuka.MoveDataName=CPDAT1; Kuka.VelocityPath=2; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=LIN
+            ;ENDFOLD
+            $BWDSTART = FALSE
+            LDAT_ACT = LCPDAT1
+            FDAT_ACT = FP2
+            BAS(#CP_PARAMS, 2.0)
+            SET_CD_PARAMS (0)
+            LIN XP2 C_Dis C_Dis
+         ;ENDFOLD
+         
+         step=4
+         ret=RSI_SETPUBLICPAR(container,"step","Value", step)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         PTP {A1 30, A2 -90, A3 90, A4 0, A5 90, A6 0}
+         
+         $ANOUT[1]=99
+         
+         ;FOLD WAIT Time= 1.0 sec ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=1.0
+            ;ENDFOLD
+            WAIT SEC 1.0
+         ;ENDFOLD
+         
+      ENDIF
+      
+      IF  ( $ANOUT[1]==2 ) THEN
+         
+         step=5
+         ret=RSI_SETPUBLICPAR(container,"step","Value", step)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         PTP {A1 0, A2 -75, A3 90, A4 -90, A5 90, A6 100}
+         
+         step=6
+         ret=RSI_SETPUBLICPAR(container,"step","Value", step)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         
+         ;FOLD WAIT Time= 5.0 sec ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=5.0
+            ;ENDFOLD
+            WAIT SEC 5.0
+         ;ENDFOLD
+         
+         movecorr_flag=1
+         ret=RSI_SETPUBLICPAR(container,"movecorr_flag","Value", movecorr_flag)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         ; Sensor guided movement
+         RSI_MOVECORR()
+         
+         movecorr_flag=0
+         ret=RSI_SETPUBLICPAR(container,"movecorr_flag","Value", movecorr_flag)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         
+         ;FOLD WAIT Time= 1.0 sec ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=1.0
+            ;ENDFOLD
+            WAIT SEC 1.0
+         ;ENDFOLD
+         
+         movecorr_flag=1
+         ret=RSI_SETPUBLICPAR(container,"movecorr_flag","Value", movecorr_flag)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         ; Sensor guided movement 
+         RSI_MOVECORR() 
+         movecorr_flag=0
+         ret=RSI_SETPUBLICPAR(container,"movecorr_flag","Value", movecorr_flag)
+         IF (ret <> RSIOK) THEN
+            HALT
+         ENDIF
+         
+         ;FOLD WAIT Time= 1.0 sec ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=1.0
+            ;ENDFOLD
+            WAIT SEC 1.0
+         ;ENDFOLD
+         
+         $ANOUT[1]=99
+         
+         ;FOLD WAIT Time= 1.0 sec ;%{PE}
+            ;FOLD Parameters ;%{h}
+               ;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=1.0
+            ;ENDFOLD
+            WAIT SEC 1.0
+         ;ENDFOLD
+         
+      ENDIF
+   ENDLOOP  
+   
+   ; Turn off RSI 
+   ret = RSI_OFF()
+   IF (ret <> RSIOK) THEN
+      HALT
+   ENDIF
+   
+   PTP {A1 0, A2 -90, A3 90, A4 0, A5 90, A6 0}
+   
+END
