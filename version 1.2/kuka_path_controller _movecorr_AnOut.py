@@ -152,7 +152,7 @@ def calculate_corrections():
             diff = shortest_angle_difference(combined_target, current_positions[axis])
         else:
             # For rotational axes with only waypoint correction
-            diff = shortest_angle_difference(current_positions[axis], current_positions[axis])
+            diff = 0
             
         if axis == "A":
             corrections[axis] = max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
@@ -168,13 +168,7 @@ def correction_send():
     global correction_val, initial_corr_pos, current_positions
 
     corrections = {}
-    position_gain = 0.005 # Higher gain for MOVECORR mode
-    rotation_gain = 0.005
-    max_correction_position = 0.05  # Higher limits for MOVECORR mode
-    max_correction_angle = 0.005
     
-    
-            
     
     # Normal waypoint mode with lower gains for precise positioning
     
@@ -187,6 +181,7 @@ def correction_send():
     for axis in correction_val:
         if correction_val[axis] != 0.0:
             axes = axis
+            break
 
        
     for axis in correction_val:
@@ -439,18 +434,7 @@ def communication_thread():
                             logging.info(f"Waypoint changed: {current_step} → {new_step}")
                             current_step = new_step
                             
-                            # Special handling for MOVECORR mode (step 6)
-                            if current_step == 6:
-                                print("Entered MOVECORR mode - free movement available")
-                                logging.info("Entered MOVECORR mode - free movement available")
-                            
-                            # Log the waypoint correction
-                            if current_step in waypoint_corrections:
-                                corr = waypoint_corrections[current_step]
-                                corr_str = ", ".join([f"{axis}={val}" for axis, val in corr.items() if val != 0])
-                                if corr_str:
-                                    print(f"Waypoint {current_step} correction: {corr_str}")
-                                    logging.info(f"Waypoint {current_step} correction: {corr_str}")
+                           
                                     
                     # Extract movecorr flag
                     movecorr_flag_elem = root.find(".//Movecorr_flag")
