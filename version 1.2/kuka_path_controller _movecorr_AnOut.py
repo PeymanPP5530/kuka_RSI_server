@@ -69,7 +69,7 @@ waypoint_corrections = {
 
 # Flags and variables for program state
 target_mode = True  # Indicates whether to use target positions
-in_movecorr_mode = False  # Indicates if MOVECORR mode is active
+
 connected = False  # Connection status with the robot
 last_packet_time = 0  # Timestamp of the last received packet
 packet_counter = 0  # Counter for received packets
@@ -113,7 +113,7 @@ def shortest_angle_difference(target, current):
 # Function to calculate corrections for robot movement
 def calculate_corrections():
     """Calculate corrections using proportional control for smoother movement."""
-    global in_movecorr_mode
+    
     
     corrections = {}
     position_gain = 0.005 # Gain for position corrections
@@ -121,58 +121,43 @@ def calculate_corrections():
     max_correction_position = 0.05  # Maximum position correction
     max_correction_angle = 0.025 #Maximum rotation correction
     
-    # Check if we're in MOVECORR mode (step 6)
-    if current_step == 88:
-        in_movecorr_mode = True
-        
-        # In MOVECORR mode, directly calculate corrections between target and current
-        for axis in ["X", "Y", "Z"]:
-            diff = target_positions[axis] - current_positions[axis]
-            corrections[axis] = max(-max_correction_position, min(max_correction_position, position_gain * diff))
+    
             
-        for axis in ["A", "B", "C"]:
-            diff = shortest_angle_difference(target_positions[axis], current_positions[axis])
+    # Normal waypoint mode with lower gains for precise poitioning
+    
+    position_gain = 0.005  # Lower gain for waypoint mode
+    rotation_gain = 0.005
+    max_correction_position = 0.05  # Lower limits for waypoint mode
+    max_correction_angle = 0.025
+    
+    
+    # Check if a manual target has been set (non-zero values)
+    has_manual_target = any(target_positions[axis] != 0.0 for axis in target_positions)
+    
+    for axis in ["X", "Y", "Z"]:
+        if has_manual_target:
+            # If manual target exists, combine it with waypoint correction
+            combined_target = target_positions[axis] 
+            diff = combined_target - current_positions[axis]
+        else:
+            # If no manual target, just apply waypoint correction directly
+            diff = 0
+            
+        # Calculate proportional correction with limits
+        corrections[axis] = max(-max_correction_position, min(max_correction_position, position_gain * diff))
+    for axis in ["A", "B", "C"]:
+        if has_manual_target:
+            # For rotational axes with manual target
+            combined_target = target_positions[axis] 
+            diff = shortest_angle_difference(combined_target, current_positions[axis])
+        else:
+            # For rotational axes with only waypoint correction
+            diff = shortest_angle_difference(current_positions[axis], current_positions[axis])
+            
+        if axis == "A":
             corrections[axis] = max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
-            
-    else:
-        # Normal waypoint mode with lower gains for precise poitioning
-        in_movecorr_mode = False
-        position_gain = 0.005  # Lower gain for waypoint mode
-        rotation_gain = 0.005
-        max_correction_position = 0.05  # Lower limits for waypoint mode
-        max_correction_angle = 0.025
-        
-        # Get the current waypoint correction based on step
-        waypoint_offset = waypoint_corrections.get(current_step, {"X": 0, "Y": 0, "Z": 0, "A": 0, "B": 0, "C": 0})
-        
-        # Check if a manual target has been set (non-zero values)
-        has_manual_target = any(target_positions[axis] != 0.0 for axis in target_positions)
-        
-        for axis in ["X", "Y", "Z"]:
-            if has_manual_target:
-                # If manual target exists, combine it with waypoint correction
-                combined_target = target_positions[axis] + waypoint_offset[axis]
-                diff = combined_target - current_positions[axis]
-            else:
-                # If no manual target, just apply waypoint correction directly
-                diff = waypoint_offset[axis]
-                
-            # Calculate proportional correction with limits
-            corrections[axis] = max(-max_correction_position, min(max_correction_position, position_gain * diff))
-
-        for axis in ["A", "B", "C"]:
-            if has_manual_target:
-                # For rotational axes with manual target
-                combined_target = target_positions[axis] + waypoint_offset[axis]
-                diff = shortest_angle_difference(combined_target, current_positions[axis])
-            else:
-                # For rotational axes with only waypoint correction
-                diff = shortest_angle_difference(current_positions[axis] + waypoint_offset[axis], current_positions[axis])
-                
-            if axis == "A":
-                corrections[axis] = max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
-            else:
-                corrections[axis] = -max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
+        else:
+            corrections[axis] = -max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
 
     return corrections
 
@@ -180,70 +165,54 @@ def calculate_corrections():
 
 def correction_send():
     """Calculate corrections using proportional control for smoother movement."""
-    global in_movecorr_mode, correction_val, initial_corr_pos, current_positions
+    global correction_val, initial_corr_pos, current_positions
 
     corrections = {}
     position_gain = 0.005 # Higher gain for MOVECORR mode
     rotation_gain = 0.005
     max_correction_position = 0.05  # Higher limits for MOVECORR mode
-    max_correction_angle = 0.05
+    max_correction_angle = 0.005
     
-    # Check if we're in MOVECORR mode (step 6)
-    if current_step == 88:
-        in_movecorr_mode = True
-        
-        # In MOVECORR mode, directly calculate corrections between target and current
-        for axis in ["X", "Y", "Z"]:
-            diff = target_positions[axis] - current_positions[axis]
-            corrections[axis] = max(-max_correction_position, min(max_correction_position, position_gain * diff))
-            
-        for axis in ["A", "B", "C"]:
-            diff = shortest_angle_difference(target_positions[axis], current_positions[axis])
-            corrections[axis] = max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
-            
-    else:
-        # Normal waypoint mode with lower gains for precise positioning
-        in_movecorr_mode = False
-        position_gain = 0.005  # Lower gain for waypoint mode
-        rotation_gain = 0.005
-        max_correction_position = 0.05  # Lower limits for waypoint mode
-        max_correction_angle = 0.025
-        
-        
-        for axis in correction_val:
-            if correction_val[axis] != 0.0:
-                # If manual target exists, combine it with waypoint correction
-                axes = axis
-              
-      
-        
     
-           
-        for axis in correction_val:
             
-            
-            
-            if axis == axes:
-                if axis == "B" or axis == "C":
-                    target_positions[axis] = convert_angle_to180(correction_val[axis] + initial_corr_pos[axis])
-                    diff = shortest_angle_difference(target_positions[axis], current_positions[axis])
-                    corrections[axis] = -max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
-                    
-                elif axis == "A":
-                    target_positions[axis] = convert_angle_to180(correction_val[axis] + initial_corr_pos[axis])
-                    diff = shortest_angle_difference(target_positions[axis], current_positions[axis])
-                    corrections[axis] = max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
-                
-                else:
-                    target_positions[axis] = correction_val[axis] + initial_corr_pos[axis]
-                    diff = target_positions[axis] - current_positions[axis]
-                    
-                    corrections[axis] = max(-max_correction_position, min(max_correction_position, position_gain * diff))
-                    
-            else:
-                corrections[axis] = 0 
+    
+    # Normal waypoint mode with lower gains for precise positioning
+    
+    position_gain = 0.005  # Lower gain for waypoint mode
+    rotation_gain = 0.005
+    max_correction_position = 0.05  # Lower limits for waypoint mode
+    max_correction_angle = 0.0025
+    
+    
+    for axis in correction_val:
+        if correction_val[axis] != 0.0:
+            axes = axis
 
        
+    for axis in correction_val:
+        
+        
+        
+        if axis == axes:
+            if axis == "B" or axis == "C":
+                target_positions[axis] = convert_angle_to180(correction_val[axis] + initial_corr_pos[axis])
+                diff = shortest_angle_difference(target_positions[axis], current_positions[axis])
+                corrections[axis] = -max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
+                
+            elif axis == "A":
+                target_positions[axis] = convert_angle_to180(correction_val[axis] + initial_corr_pos[axis])
+                diff = shortest_angle_difference(target_positions[axis], current_positions[axis])
+                corrections[axis] = max(-max_correction_angle, min(max_correction_angle, rotation_gain * diff))
+            
+            else:
+                target_positions[axis] = correction_val[axis] + initial_corr_pos[axis]
+                diff = target_positions[axis] - current_positions[axis]
+                
+                corrections[axis] = max(-max_correction_position, min(max_correction_position, position_gain * diff))
+                
+        else:
+            corrections[axis] = 0 
+    
 
     return corrections
 
@@ -270,9 +239,9 @@ def user_input_thread():
     print("----------------------------------------")
     print("Commands:")
     print("  target AXIS VALUE - Set single target position (e.g., target X 1500)")
-    print("  (X,Y,Z,A,B,C) - Set all target positions at once (e.g., (1500,200,800,0,90,0))")
+    print("  (X,Y,Z,A,B,C) - Set all target positions at once (e.g., (2010,215,1700,180,90,90))")
     print("  correctio X 50 - Set the correction value for an axis directly")
-    print("  routine 2 - Set the routinr number to activate a routine ")
+    print("  routine 2 - Set the routine number to activate a routine ")
     print("  reset - Reset all target positions to zero")
     print("  waypoint - Show current waypoint and correction")
     print("  current - Show current robot position")
@@ -318,6 +287,10 @@ def user_input_thread():
             print("Target positions:")
             for axis, value in target_positions.items():
                 print(f"  {axis}: {value:.2f}")
+
+        elif cmd.lower() == "routine":
+            print("routines in que:")
+            print(routine_user)
         
         elif cmd.lower() == "reset":
             for axis in target_positions:
@@ -337,11 +310,11 @@ def user_input_thread():
                 print("No corrections defined for this waypoint")
                 
         elif cmd.lower() == "status":
-            global connected, packet_counter, last_packet_time, in_movecorr_mode
+            global connected, packet_counter, last_packet_time
             print(f"Connection status: {'Connected' if connected else 'Disconnected'}")
             print(f"Packets received: {packet_counter}")
             print(f"Current waypoint: {current_step}")
-            print(f"MOVECORR mode: {'Active' if in_movecorr_mode else 'Inactive'}")
+            
             if connected:
                 print(f"Last packet received: {time.time() - last_packet_time:.1f} seconds ago")
         
@@ -396,8 +369,8 @@ def user_input_thread():
                     routine_user.append(int(parts[1]))
                     
                     
-                    print(f"Set routine number to {routine_num}")
-                    logging.info(f"Set routine number to {routine_num}")
+                    print(f" {parts[1]} added to the que")
+                    logging.info(f" {parts[1]} added to the que")
                 except ValueError:
                     print("Error: Value must be a number")
             else:
@@ -547,8 +520,8 @@ def communication_thread():
                 # Log status periodically
                 if packet_counter % 100 == 0:
                     pos_str = ", ".join([f"{axis}={current_positions[axis]:.1f}" for axis in ["X", "Y", "Z", "A", "B", "C"]])
-                    mode_str = " (MOVECORR mode)" if in_movecorr_mode else ""
-                    print(f"Step {current_step}{mode_str} | Pos: {pos_str}")
+                    
+                    print(f"Step {current_step}| Pos: {pos_str}")
                 
             except socket.timeout:
                 # Check if connection is lost
