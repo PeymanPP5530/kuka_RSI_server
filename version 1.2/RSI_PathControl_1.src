@@ -1,5 +1,5 @@
 &ACCESS RVP
-&REL 17
+&REL 24
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
 &PARAM DISKPATH = KRC:\R1
@@ -30,6 +30,7 @@ DEF RSI_PathControl_1()
       HALT
    ENDIF
    
+   $ANOUT[1]=99
    ; Start RSI execution in RELATIVE mode for smaller corrections
    ret = RSI_ON(#RELATIVE, , ,#BASE)
    
@@ -38,6 +39,8 @@ DEF RSI_PathControl_1()
    ENDIF
    
    LOOP
+
+
       
       IF  ( $ANOUT[1]==1 ) THEN
          
@@ -174,6 +177,17 @@ DEF RSI_PathControl_1()
             ;ENDFOLD
             WAIT SEC 1.0
          ;ENDFOLD
+         
+         ENDIF
+         
+
+      IF  ( $ANOUT[1] <> 1) THEN
+         
+
+         IF  ( $ANOUT[1] <> 2 ) THEN
+            $ANOUT[1] = 99
+            WAIT SEC 1.0
+         ENDIF
          
       ENDIF
    ENDLOOP  
