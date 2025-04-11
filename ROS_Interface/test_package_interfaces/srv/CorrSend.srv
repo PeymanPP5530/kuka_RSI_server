@@ -1,0 +1,4 @@
+string name
+float64 val
+---
+int64 result
