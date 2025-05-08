@@ -14,6 +14,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+
 # Global variables for target positions (desired positions for the robot)
 target_positions = {
     "X": 0.0,
