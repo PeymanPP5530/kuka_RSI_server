@@ -111,7 +111,7 @@ class KukaRsiNode(Node):
         self.srv_routine = self.create_service(RoutineSend, '~/routine_send', self.routine_callback)
         self.srv_stop = self.create_service(StopSend, '~/stop_send', self.stop_callback)
         
-        # TODO: Add subscribers/services for correction_val, stop_flag, reset?
+        
 
         # --- Start Communication Thread ---
         self.get_logger().info("Starting communication thread...")
@@ -225,12 +225,28 @@ class KukaRsiNode(Node):
     def create_response(self, ipoc, corrections):
         """Generate XML response string."""
         # Ensure all axes have a value, default to 0.0 if missing
-        corr_x = corrections.get("X", 0.0)
-        corr_y = corrections.get("Y", 0.0)
-        corr_z = corrections.get("Z", 0.0)
-        corr_a = corrections.get("A", 0.0)
-        corr_b = corrections.get("B", 0.0)
-        corr_c = corrections.get("C", 0.0)
+
+        if self.last_movecorr_flag == '0':
+
+            corr_x = 0.0
+            corr_y = 0.0
+            corr_z = 0.0
+            corr_a = 0.0
+            corr_b = 0.0
+            corr_c = 0.0
+            self.correction_val = {"X": 0.0, "Y": 0.0, "Z": 0.0, "A": 0.0, "B": 0.0, "C": 0.0}
+            
+
+        else:
+
+            corr_x = corrections.get("X", 0.0)
+            corr_y = corrections.get("Y", 0.0)
+            corr_z = corrections.get("Z", 0.0)
+            corr_a = corrections.get("A", 0.0)
+            corr_b = corrections.get("B", 0.0)
+            corr_c = corrections.get("C", 0.0)
+
+
 
         # Format with 4 decimal places
         response = (
@@ -441,6 +457,7 @@ class KukaRsiNode(Node):
                         movecorr_flag_elem = root.find(".//Movecorr_flag")
                         if movecorr_flag_elem is not None:
                             current_movecorr_flag = movecorr_flag_elem.text
+
                             if current_movecorr_flag != self.last_movecorr_flag:
                                 self.get_logger().info(f"Movecorr_flag changed to: {current_movecorr_flag}")
                                 self.last_movecorr_flag = current_movecorr_flag
@@ -448,6 +465,8 @@ class KukaRsiNode(Node):
                                 if self.last_movecorr_flag == "0" and self.stop_flag == 1:
                                     self.get_logger().info("Resetting internal stop_flag as external MOVECORR flag is 0.")
                                     self.stop_flag = 0
+
+                                
 
                         # Routine Number Logic (AnOut_1)
                         an_out_elem = root.find(".//AnOut_1")
